@@ -65,13 +65,15 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
 
-  void _openAttendance(Attendance att) {
-    Navigator.of(context).push(
+  void _openAttendance(Attendance att) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) =>
             AttendanceDetailScreen(attendance: att, onSave: _loadAttendances),
       ),
     );
+    // Always reload attendances after returning from detail screen
+    await _loadAttendances();
   }
 
   @override
@@ -124,28 +126,40 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             )
-          : ListView.builder(
-              itemCount: savedAttendances.length,
-              itemBuilder: (context, i) {
-                final att = savedAttendances[i];
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: ListTile(
-                    title: Text(att.name),
-                    subtitle: Text('Created: \\${att.createdAt.toLocal()}'),
-                    onTap: () => _openAttendance(att),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () async {
-                        await _deleteAttendance(att.id);
-                      },
+          : RefreshIndicator(
+              onRefresh: _loadAttendances,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: savedAttendances.length,
+                itemBuilder: (context, i) {
+                  final att = savedAttendances[i];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-                  ),
-                );
-              },
+                    child: ListTile(
+                      title: Text(att.name),
+                      subtitle: Row(
+                        children: [
+                          _CounterPill(label: 'Total', count: att.totalPresent, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          _CounterPill(label: 'Male', count: att.totalMale, color: Colors.lightBlue),
+                          const SizedBox(width: 8),
+                          _CounterPill(label: 'Female', count: att.totalFemale, color: Colors.pinkAccent),
+                        ],
+                      ),
+                      onTap: () => _openAttendance(att),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          await _deleteAttendance(att.id);
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
       floatingActionButton: savedAttendances.isEmpty
           ? null
