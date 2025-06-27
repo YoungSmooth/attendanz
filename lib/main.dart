@@ -1,3 +1,4 @@
+import 'section_adjuster.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:uuid/uuid.dart';
@@ -15,7 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Attendanz',
+      title: 'SOJ Attendanz',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -82,10 +83,14 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.onSecondary,
       appBar: AppBar(
-        title: const Text('Attendanz'),
+        title: const Text(
+          'SOJ Attendanz',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: Theme.of(context).colorScheme.onSecondary,
       ),
       body: savedAttendances.isEmpty
           ? Center(
@@ -99,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 32),
                   const Text(
-                    'Welcome to Attendanz',
+                    'Welcome to SOJ Attendanz',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
@@ -142,11 +147,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: Text(att.name),
                       subtitle: Row(
                         children: [
-                          _CounterPill(label: 'Total', count: att.totalPresent, color: Colors.blue),
+                          _CounterPill(
+                            label: 'Total',
+                            count: att.totalPresent,
+                            color: Colors.blue,
+                          ),
                           const SizedBox(width: 8),
-                          _CounterPill(label: 'Male', count: att.totalMale, color: Colors.lightBlue),
+                          _CounterPill(
+                            label: 'Male',
+                            count: att.totalMale,
+                            color: Colors.lightBlue,
+                          ),
                           const SizedBox(width: 8),
-                          _CounterPill(label: 'Female', count: att.totalFemale, color: Colors.pinkAccent),
+                          _CounterPill(
+                            label: 'Female',
+                            count: att.totalFemale,
+                            color: Colors.pinkAccent,
+                          ),
                         ],
                       ),
                       onTap: () => _openAttendance(att),
@@ -311,7 +328,9 @@ class Attendance {
       id: json['id'],
       name: json['name'],
       createdAt: DateTime.parse(json['createdAt']),
-      sections: (json['sections'] as List).map((e) => Section.fromJson(e)).toList(),
+      sections: (json['sections'] as List)
+          .map((e) => Section.fromJson(e))
+          .toList(),
       totalPresent: json['totalPresent'] ?? 0,
       totalMale: json['totalMale'] ?? 0,
       totalFemale: json['totalFemale'] ?? 0,
@@ -361,9 +380,16 @@ class Section {
         .toList(),
   };
 
-  int get presentCount => cells.expand((row) => row).where((c) => c.present).length;
-  int get maleCount => cells.expand((row) => row).where((c) => c.present && c.gender == 'male').length;
-  int get femaleCount => cells.expand((row) => row).where((c) => c.present && c.gender == 'female').length;
+  int get presentCount =>
+      cells.expand((row) => row).where((c) => c.present).length;
+  int get maleCount => cells
+      .expand((row) => row)
+      .where((c) => c.present && c.gender == 'male')
+      .length;
+  int get femaleCount => cells
+      .expand((row) => row)
+      .where((c) => c.present && c.gender == 'female')
+      .length;
 }
 
 class Cell {
@@ -448,7 +474,9 @@ class _AttendanceDetailScreenState extends State<AttendanceDetailScreen> {
   }
 
   void _renameSection(int sectionIdx) async {
-    final controller = TextEditingController(text: attendance.sections[sectionIdx].label);
+    final controller = TextEditingController(
+      text: attendance.sections[sectionIdx].label,
+    );
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -673,96 +701,118 @@ class _SectionPanelState extends State<SectionPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: widget.onRename,
-                    child: Text(
-                      section.label,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        decoration: TextDecoration.underline,
-                        color: Colors.blue,
-                      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: widget.onRename,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Colors.deepPurple.shade400,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          section.label,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 18,
+                            color: Colors.deepPurple.shade400,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Text('Rows:'),
-                  IconButton(
-                    icon: const Icon(Icons.remove),
-                    onPressed: section.rows > 1 ? () => _changeRows(-1) : null,
-                  ),
-                  Text('\t${section.rows}'),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: section.rows < 20 ? () => _changeRows(1) : null,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('Cols:'),
-                  IconButton(
-                    icon: const Icon(Icons.remove),
-                    onPressed: section.cols > 1 ? () => _changeCols(-1) : null,
-                  ),
-                  Text('\t${section.cols}'),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: section.cols < 20 ? () => _changeCols(1) : null,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 16),
+                SectionAdjuster(
+                  label: 'Rows',
+                  value: section.rows,
+                  onAdd: section.rows < 20 ? () => _changeRows(1) : null,
+                  onRemove: section.rows > 1 ? () => _changeRows(-1) : null,
+                ),
+                const SizedBox(width: 10),
+                SectionAdjuster(
+                  label: 'Cols',
+                  value: section.cols,
+                  onAdd: section.cols < 20 ? () => _changeCols(1) : null,
+                  onRemove: section.cols > 1 ? () => _changeCols(-1) : null,
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Flexible(
+          ),
+          const SizedBox(height: 12),
+          Flexible(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: Column(
-                    children: List.generate(section.rows, (row) {
-                      return Row(
-                        children: List.generate(section.cols, (col) {
-                          final cell = section.cells[row][col];
-                          Color fillColor;
-                          if (!cell.present) {
-                            fillColor = Colors.grey[300]!;
-                          } else if (cell.gender == 'male') {
-                            fillColor = Colors.lightBlue;
-                          } else if (cell.gender == 'female') {
-                            fillColor = Colors.pinkAccent;
-                          } else {
-                            fillColor = Colors.blue;
-                          }
-                          return GestureDetector(
-                            onTap: () => _toggleCell(row, col),
-                            child: Container(
-                              margin: const EdgeInsets.all(4),
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: fillColor,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.black12),
+                scrollDirection: Axis.vertical,
+                child: Column(
+                  children: List.generate(section.rows, (row) {
+                    return Row(
+                      children: List.generate(section.cols, (col) {
+                        final cell = section.cells[row][col];
+                        Color fillColor;
+                        if (!cell.present) {
+                          fillColor = Colors.grey[200]!;
+                        } else if (cell.gender == 'male') {
+                          fillColor = Colors.blue.shade300;
+                        } else if (cell.gender == 'female') {
+                          fillColor = Colors.pink.shade200;
+                        } else {
+                          fillColor = Colors.deepPurple.shade200;
+                        }
+                        return GestureDetector(
+                          onTap: () => _toggleCell(row, col),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            margin: const EdgeInsets.all(4),
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: fillColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.deepPurple.shade100,
+                                width: 1.2,
                               ),
+                              boxShadow: cell.present
+                                  ? [
+                                      BoxShadow(
+                                        color: fillColor.withOpacity(0.18),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : [],
                             ),
-                          );
-                        }),
-                      );
-                    }),
-                  ),
+                          ),
+                        );
+                      }),
+                    );
+                  }),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
