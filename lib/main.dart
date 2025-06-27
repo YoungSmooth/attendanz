@@ -1,6 +1,6 @@
 import 'section_adjuster.dart';
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'package:flutter/cupertino.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,10 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAttendances();
+    loadAttendances();
   }
 
-  Future<void> _loadAttendances() async {
+  Future<void> loadAttendances() async {
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList('attendances') ?? [];
     setState(() {
@@ -66,15 +66,82 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
 
+  void _showDeleteConfirm(BuildContext context, Attendance att) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Icon(CupertinoIcons.trash, color: Colors.red, size: 40),
+                const SizedBox(height: 16),
+                Text(
+                  'Delete "${att.name}"?',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'This attendance and all its data will be permanently deleted.',
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CupertinoButton(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        color: Colors.grey[200],
+                        child: const Text('Cancel', style: TextStyle(color: Colors.black)),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: CupertinoButton.filled(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: const Text('Delete'),
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          await _deleteAttendance(att.id);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _openAttendance(Attendance att) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) =>
-            AttendanceDetailScreen(attendance: att, onSave: _loadAttendances),
+            AttendanceDetailScreen(attendance: att, onSave: loadAttendances),
       ),
     );
     // Always reload attendances after returning from detail screen
-    await _loadAttendances();
+    await loadAttendances();
   }
 
   @override
@@ -108,31 +175,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => CreateAttendanceDialog(
-                          onCreate: (attendance) async {
-                            await _loadAttendances();
-                          },
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
-                      ),
-                      textStyle: const TextStyle(fontSize: 18),
+                  SizedBox(
+                    width: 220,
+                    child: CupertinoButton.filled(
+                      borderRadius: BorderRadius.circular(14),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      onPressed: () {
+                        _showCreateAttendanceModal(context);
+                      },
+                      child: const Text('Create Attendance', style: TextStyle(fontSize: 18)),
                     ),
-                    child: const Text('Create Attendance'),
                   ),
                 ],
               ),
             )
           : RefreshIndicator(
-              onRefresh: _loadAttendances,
+              onRefresh: loadAttendances,
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: savedAttendances.length,
@@ -169,8 +227,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () => _openAttendance(att),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () async {
-                          await _deleteAttendance(att.id);
+                        onPressed: () {
+                          _showDeleteConfirm(context, att);
                         },
                       ),
                     ),
@@ -182,14 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ? null
           : FloatingActionButton(
               onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => CreateAttendanceDialog(
-                    onCreate: (attendance) async {
-                      await _loadAttendances();
-                    },
-                  ),
-                );
+                _showCreateAttendanceModal(context);
               },
               tooltip: 'Create Attendance',
               child: const Icon(Icons.edit),
@@ -198,107 +249,166 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Modified CreateAttendanceDialog to accept onCreate callback
-class CreateAttendanceDialog extends StatefulWidget {
-  final void Function(Attendance)? onCreate;
-  const CreateAttendanceDialog({super.key, this.onCreate});
+  void _showCreateAttendanceModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 32,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          ),
+          child: _CreateAttendanceSheet(onCreate: (attendance) async {
+            await (context.findAncestorStateOfType<_HomeScreenState>()?.loadAttendances() ?? Future.value());
+            Navigator.of(context).pop();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => AttendanceDetailScreen(
+                  attendance: attendance,
+                  onSave: context.findAncestorStateOfType<_HomeScreenState>()?.loadAttendances,
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+// Apple-style bottom sheet for creating attendance
+class _CreateAttendanceSheet extends StatefulWidget {
+  final void Function(Attendance) onCreate;
+  const _CreateAttendanceSheet({required this.onCreate});
 
   @override
-  State<CreateAttendanceDialog> createState() => _CreateAttendanceDialogState();
+  State<_CreateAttendanceSheet> createState() => _CreateAttendanceSheetState();
 }
 
-class _CreateAttendanceDialogState extends State<CreateAttendanceDialog> {
+class _CreateAttendanceSheetState extends State<_CreateAttendanceSheet> {
   final TextEditingController _nameController = TextEditingController();
   int _sectionCount = 1;
+  bool _creating = false;
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('New Attendance'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(labelText: 'Attendance Name'),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: bottom > 0 ? bottom : 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Section Count'),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove),
-                    onPressed: _sectionCount > 1
-                        ? () => setState(() => _sectionCount--)
-                        : null,
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  Text('$_sectionCount', style: const TextStyle(fontSize: 18)),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: _sectionCount < 10
-                        ? () => setState(() => _sectionCount++)
-                        : null,
+                ),
+              ),
+              const Text(
+                'New Attendance',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 18),
+              CupertinoTextField(
+                controller: _nameController,
+                placeholder: 'Attendance Name',
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                style: const TextStyle(fontSize: 18),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Section Count', style: TextStyle(fontSize: 16)),
+                  Row(
+                    children: [
+                      CupertinoButton(
+                        padding: const EdgeInsets.all(0),
+                        minSize: 36,
+                        child: const Icon(CupertinoIcons.minus_circle, size: 32),
+                        onPressed: _sectionCount > 1 && !_creating ? () => setState(() => _sectionCount--) : null,
+                      ),
+                      Container(
+                        width: 36,
+                        alignment: Alignment.center,
+                        child: Text('$_sectionCount', style: const TextStyle(fontSize: 20)),
+                      ),
+                      CupertinoButton(
+                        padding: const EdgeInsets.all(0),
+                        minSize: 36,
+                        child: const Icon(CupertinoIcons.add_circled, size: 32),
+                        onPressed: _sectionCount < 10 && !_creating ? () => setState(() => _sectionCount++) : null,
+                      ),
+                    ],
                   ),
                 ],
               ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Expanded(
+                    child: CupertinoButton(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      color: Colors.grey[200],
+                      child: const Text('Cancel', style: TextStyle(color: Colors.black)),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: CupertinoButton.filled(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: _creating ? const CupertinoActivityIndicator() : const Text('Create'),
+                      onPressed: _creating
+                          ? null
+                          : () async {
+                              if (_nameController.text.trim().isEmpty) return;
+                              setState(() => _creating = true);
+                              final uuid = Uuid();
+                              final attendance = Attendance(
+                                id: uuid.v4(),
+                                name: _nameController.text.trim(),
+                                createdAt: DateTime.now(),
+                                sections: List.generate(_sectionCount, (i) {
+                                  return Section(
+                                    id: uuid.v4(),
+                                    label: String.fromCharCode(65 + i),
+                                  );
+                                }),
+                              );
+                              final prefs = await SharedPreferences.getInstance();
+                              final list = prefs.getStringList('attendances') ?? [];
+                              list.add(jsonEncode(attendance.toJson()));
+                              await prefs.setStringList('attendances', list);
+                              widget.onCreate(attendance);
+                            },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
             ],
           ),
-        ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            if (_nameController.text.trim().isNotEmpty) {
-              final uuid = Uuid();
-              final attendance = Attendance(
-                id: uuid.v4(),
-                name: _nameController.text.trim(),
-                createdAt: DateTime.now(),
-                sections: List.generate(_sectionCount, (i) {
-                  return Section(
-                    id: uuid.v4(),
-                    label: String.fromCharCode(65 + i),
-                  );
-                }),
-              );
-              final prefs = await SharedPreferences.getInstance();
-              final list = prefs.getStringList('attendances') ?? [];
-              list.add(jsonEncode(attendance.toJson()));
-              await prefs.setStringList('attendances', list);
-              widget.onCreate?.call(attendance);
-              Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => AttendanceDetailScreen(
-                    attendance: attendance,
-                    onSave: () async {
-                      final prefs = await SharedPreferences.getInstance();
-                      final list = prefs.getStringList('attendances') ?? [];
-                      final idx = list.indexWhere(
-                        (e) =>
-                            Attendance.fromJson(jsonDecode(e)).id ==
-                            attendance.id,
-                      );
-                      if (idx != -1) {
-                        list[idx] = jsonEncode(attendance.toJson());
-                        await prefs.setStringList('attendances', list);
-                      }
-                    },
-                  ),
-                ),
-              );
-            }
-          },
-          child: const Text('Create'),
-        ),
-      ],
     );
   }
 }
